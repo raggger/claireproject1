@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>LeaveLog</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── Shared tokens ── */
+  :root {
+    --accent: #c8a96e;
+    --accent2: #e8c98a;
+    --green: #3db87a;
+    --green-bg: rgba(61,184,122,0.14);
+    --amber: #d4861a;
+    --amber-bg: rgba(212,134,26,0.14);
+    --blue: #5aabf0;
+    --blue-bg: rgba(90,171,240,0.12);
+    --red: #e05050;
+    --red-bg: rgba(224,80,80,0.12);
+    --purple: #a87ef0;
+    --purple-bg: rgba(168,126,240,0.12);
+    --radius: 16px;
+    --radius-sm: 10px;
+    --font-display: 'DM Serif Display', Georgia, serif;
+    --font-body: 'DM Sans', sans-serif;
+    --sheet-height: 0px;
+    --theme-transition: background 0.3s, color 0.3s, border-color 0.3s;
+  }
+
+  /* ── Dark theme (default) ── */
+  :root, body.dark {
+    --bg: #0a0a0f;
+    --sheet-bg: #141418;
+    --surface: rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --surface3: rgba(255,255,255,0.17);
+    --border: rgba(255,255,255,0.10);
+    --border2: rgba(255,255,255,0.18);
+    --text: #f0ede8;
+    --text2: rgba(240,237,232,0.60);
+    --text3: rgba(240,237,232,0.35);
+    --overlay-bg: rgba(10,10,15,0.60);
+    --overlay-grad: linear-gradient(to bottom, rgba(10,10,15,0.55) 0%, rgba(10,10,15,0.80) 100%);
+    --nav-bg: rgba(14,14,20,0.88);
+  }
+
+  /* ── Light theme ── */
+  body.light {
+    --bg: #f5f2ed;
+    --sheet-bg: #ffffff;
+    --surface: rgba(0,0,0,0.04);
+    --surface2: rgba(0,0,0,0.07);
+    --surface3: rgba(0,0,0,0.12);
+    --border: rgba(0,0,0,0.09);
+    --border2: rgba(0,0,0,0.15);
+    --text: #1a1714;
+    --text2: rgba(26,23,20,0.58);
+    --text3: rgba(26,23,20,0.36);
+    --overlay-bg: rgba(245,242,237,0.55);
+    --overlay-grad: linear-gradient(to bottom, rgba(245,242,237,0.45) 0%, rgba(245,242,237,0.72) 100%);
+    --nav-bg: rgba(245,242,237,0.92);
+    /* re-tune accent colours for light bg readability */
+    --green: #1e8a52;
+    --green-bg: rgba(30,138,82,0.11);
+    --amber: #b86d0a;
+    --amber-bg: rgba(184,109,10,0.11);
+    --red: #c03030;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 16px; }
+
+  /* Background */
+  #bg-layer {
+    position: fixed; inset: 0; z-index: 0;
+    background-size: cover; background-position: center; background-repeat: no-repeat;
+    transition: opacity 0.5s;
+  }
+  #bg-overlay {
+    position: fixed; inset: 0; z-index: 1;
+    background: var(--overlay-grad);
+  }
+
+  /* App shell */
+  #app { position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Screens */
+  .screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+  .screen.active { display: flex; }
+
+  /* Header */
+  .app-header {
+    padding: env(safe-area-inset-top, 12px) 20px 0;
+    padding-top: max(env(safe-area-inset-top), 44px);
+    flex-shrink: 0;
+  }
+  .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .app-title { font-family: var(--font-display); font-size: 28px; color: var(--text); letter-spacing: -0.5px; }
+  .app-subtitle { font-size: 12px; color: var(--text2); letter-spacing: 0.04em; }
+  .icon-btn {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--surface2); border: 0.5px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 16px; color: var(--text); transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .icon-btn:active { background: var(--surface3); }
+
+  /* Scroll container */
+  .scroll-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 20px; padding-bottom: max(env(safe-area-inset-bottom, 0px) + 80px, 80px); }
+
+  /* Balance strip */
+  .balance-strip {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--radius);
+    padding: 10px 8px; gap: 4px; margin-bottom: 0;
+  }
+  .bal-cell { text-align: center; }
+  .bal-num { font-family: var(--font-display); font-size: 22px; line-height: 1; }
+  .bal-num.green { color: var(--green); }
+  .bal-num.amber { color: var(--amber); }
+  .bal-num.blue { color: var(--blue); }
+  .bal-label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+
+  /* Semester cards */
+  .sem-card {
+    background: var(--surface); border: 0.5px solid var(--border);
+    border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
+    cursor: pointer; transition: background 0.2s, border-color 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .sem-card:active { background: var(--surface2); }
+  .sem-card.current { border-color: var(--accent); }
+  .sem-card.current::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent);
+  }
+  .sem-card-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .sem-name { font-size: 15px; font-weight: 500; }
+  .sem-tag {
+    font-size: 10px; padding: 3px 10px; border-radius: 20px; font-weight: 500;
+    background: var(--surface2); color: var(--text2); border: 0.5px solid var(--border);
+  }
+  .sem-tag.current { background: rgba(200,169,110,0.18); color: var(--accent2); border-color: rgba(200,169,110,0.4); }
+  .progress-row { display: flex; align-items: center; gap: 10px; }
+  .prog-track { flex: 1; height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 2px; background: var(--green); transition: width 0.4s; }
+  .prog-fill.warn { background: var(--amber); }
+  .prog-fill.danger { background: var(--red); }
+  .prog-pct { font-size: 11px; color: var(--text2); min-width: 36px; text-align: right; }
+  .sem-stats-row { display: flex; gap: 12px; margin-top: 8px; }
+  .sem-stat { font-size: 11px; color: var(--text3); }
+  .sem-stat span { color: var(--text2); }
+
+  /* Calendar screen */
+  .cal-header { padding: 0 20px 6px; flex-shrink: 0; }
+  .back-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; margin-top: 12px; }
+  .back-btn { font-size: 13px; color: var(--accent); cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  .cal-title { font-family: var(--font-display); font-size: 24px; }
+  .cal-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  .month-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 20px 6px; flex-shrink: 0; }
+  .month-label { font-size: 14px; font-weight: 500; }
+  .month-arrow { width: 32px; height: 32px; border-radius: 50%; background: var(--surface2); border: 0.5px solid var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; color: var(--text2); }
+  .month-arrow:active { background: var(--surface3); }
+
+  .cal-grid-wrap { padding: 0 16px; flex-shrink: 0; }
+  .day-heads { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 2px; }
+  .day-head { text-align: center; font-size: 9px; color: var(--text3); padding: 3px 0; text-transform: uppercase; letter-spacing: 0.06em; }
+  .day-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+
+  /* Compact day cell */
+  .day-cell {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 4px 2px 5px; border-radius: 9px; cursor: pointer; position: relative;
+    transition: background 0.12s; user-select: none; min-height: 38px;
+  }
+  .day-num {
+    font-size: 12px; line-height: 1.1; color: var(--text3); font-weight: 400;
+    transition: color 0.12s, font-weight 0.12s; border-radius: 5px; padding: 2px 4px;
+  }
+  /* Indicator bar below number */
+  .day-pip {
+    width: 18px; height: 3px; border-radius: 2px; margin-top: 3px; opacity: 0;
+    transition: opacity 0.15s, width 0.15s;
+  }
+  .day-cell.empty { pointer-events: none; }
+  .day-cell.outside-sem { opacity: 0.28; pointer-events: auto; }
+  .day-cell.outside-sem .day-pip { opacity: 0 !important; }
+
+  /* Today: gold circle behind number */
+  .day-cell.today .day-num {
+    color: #fff;
+    background: var(--accent);
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .day-cell.today .day-pip { opacity: 0; }
+
+  /* Leave balance: amber solid background on number + amber bar */
+  .day-cell.type-balance .day-num {
+    color: #fff;
+    background: var(--amber);
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .day-cell.type-balance .day-pip { background: var(--amber); opacity: 0.45; width: 22px; }
+
+  /* On-duty: green solid background on number + green bar */
+  .day-cell.type-onduty .day-num {
+    color: #fff;
+    background: var(--green);
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .day-cell.type-onduty .day-pip { background: var(--green); opacity: 0.45; width: 22px; }
+
+  /* Today + marked: pill colour overrides gold, bar shows type */
+  .day-cell.today.type-balance .day-num { background: var(--amber); }
+  .day-cell.today.type-balance .day-pip { background: var(--amber); opacity: 0.45; width: 22px; }
+  .day-cell.today.type-onduty .day-num { background: var(--green); }
+  .day-cell.today.type-onduty .day-pip { background: var(--green); opacity: 0.45; width: 22px; }
+
+  /* Active tap feedback */
+  .day-cell:active:not(.empty) { opacity: 0.65; transform: scale(0.93); }
+
+  /* Legend */
+  .legend-row { display: flex; gap: 16px; flex-wrap: wrap; padding: 8px 20px; flex-shrink: 0; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text3); }
+  .legend-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  /* Bottom sheet */
+  .sheet-backdrop {
+    position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0);
+    pointer-events: none; transition: background 0.3s;
+  }
+  .sheet-backdrop.open { background: rgba(0,0,0,0.55); pointer-events: all; }
+  .sheet {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 51;
+    background: var(--sheet-bg); border-top: 0.5px solid var(--border2);
+    border-radius: 22px 22px 0 0; padding: 12px 20px;
+    padding-bottom: max(env(safe-area-inset-bottom, 16px), 20px);
+    transform: translateY(100%); transition: transform 0.38s cubic-bezier(0.32,0.72,0,1);
+    max-height: 92vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet-handle { width: 36px; height: 4px; background: var(--surface3); border-radius: 2px; margin: 0 auto 16px; }
+  .sheet-title { font-family: var(--font-display); font-size: 22px; margin-bottom: 4px; }
+  .sheet-sub { font-size: 12px; color: var(--text2); margin-bottom: 20px; }
+
+  .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+  .type-opt {
+    padding: 14px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: var(--surface); cursor: pointer; text-align: center; transition: all 0.2s;
+  }
+  .type-opt .t-icon { font-size: 22px; margin-bottom: 6px; }
+  .type-opt .t-label { font-size: 12px; font-weight: 500; color: var(--text2); }
+  .type-opt .t-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .type-opt.sel-balance { background: var(--amber-bg); border-color: var(--amber); }
+  .type-opt.sel-balance .t-label { color: var(--amber); }
+  .type-opt.sel-onduty { background: var(--green-bg); border-color: var(--green); }
+  .type-opt.sel-onduty .t-label { color: var(--green); }
+
+  .field-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+  .chip {
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer;
+    background: var(--surface2); border: 0.5px solid var(--border); color: var(--text2);
+    transition: all 0.2s;
+  }
+  .chip.sel { background: var(--amber-bg); border-color: var(--amber); color: var(--amber); }
+  .chip.sel.onduty { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+
+  .text-input, .text-area {
+    width: 100%; background: var(--surface); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm); color: var(--text); font-family: var(--font-body);
+    font-size: 14px; padding: 12px 14px; outline: none; transition: border-color 0.2s;
+    -webkit-appearance: none; appearance: none;
+  }
+  .text-input:focus, .text-area:focus { border-color: var(--accent); }
+  .text-area { resize: none; min-height: 72px; display: block; }
+  .input-wrap { margin-bottom: 16px; }
+
+  .photo-section { margin-bottom: 20px; }
+  .photo-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .photo-thumb {
+    width: 72px; height: 72px; border-radius: 10px; object-fit: cover;
+    border: 0.5px solid var(--border); cursor: pointer; position: relative;
+  }
+  .photo-add {
+    width: 72px; height: 72px; border-radius: 10px;
+    background: var(--surface); border: 1px dashed var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: var(--text3); cursor: pointer; flex-shrink: 0;
+  }
+  .photo-add:active { background: var(--surface2); }
+
+  .action-row { display: flex; gap: 10px; margin-top: 4px; }
+  .btn-primary {
+    flex: 1; padding: 15px; border-radius: var(--radius-sm);
+    background: var(--accent); color: #0a0a0f; font-family: var(--font-body);
+    font-size: 14px; font-weight: 600; border: none; cursor: pointer;
+    transition: opacity 0.2s; -webkit-appearance: none;
+  }
+  .btn-primary:active { opacity: 0.85; transform: scale(0.98); }
+  .btn-secondary {
+    padding: 15px 20px; border-radius: var(--radius-sm);
+    background: var(--surface2); color: var(--red); font-family: var(--font-body);
+    font-size: 14px; font-weight: 500; border: 0.5px solid rgba(240,96,96,0.3); cursor: pointer;
+    -webkit-appearance: none;
+  }
+  .btn-secondary:active { background: var(--red-bg); }
+
+  /* Setup screen */
+  .setup-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 32px 24px; text-align: center; }
+  .setup-logo { font-family: var(--font-display); font-size: 42px; margin-bottom: 8px; color: var(--accent2); }
+  .setup-tagline { font-size: 13px; color: var(--text2); margin-bottom: 36px; }
+  .setup-card { background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 360px; text-align: left; }
+  .setup-step-label { font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .setup-step-title { font-size: 17px; font-weight: 500; margin-bottom: 16px; }
+  .setup-hint { font-size: 11px; color: var(--text3); margin-top: -10px; margin-bottom: 14px; }
+  .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .setup-field-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
+
+  /* Settings */
+  .settings-list { padding: 0 20px; }
+  .settings-section { margin-bottom: 24px; }
+  .settings-section-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+  .settings-item {
+    background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm);
+    padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; margin-bottom: 8px; transition: background 0.2s;
+  }
+  .settings-item:active { background: var(--surface2); }
+  .settings-item-label { font-size: 14px; color: var(--text); }
+  .settings-item-val { font-size: 12px; color: var(--text2); }
+  .settings-item-arrow { color: var(--text3); }
+
+  /* Day detail in sheet */
+  .day-log-entry {
+    background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm);
+    padding: 12px 14px; margin-bottom: 8px;
+  }
+  .day-log-type { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+  .day-log-note { font-size: 13px; color: var(--text2); }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: rgba(20,20,24,0.95); border: 0.5px solid var(--border2);
+    border-radius: 24px; padding: 10px 20px; font-size: 13px; color: var(--text);
+    z-index: 100; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap;
+    backdrop-filter: blur(10px);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Upload bg button */
+  #bg-upload-input { display: none; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
+
+  /* Semester detail photos */
+  .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 8px; }
+  .photo-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer; }
+
+  /* Nav */
+  .nav-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+    padding: 10px 20px; padding-bottom: max(env(safe-area-inset-bottom, 0px) + 10px, 16px);
+    background: var(--nav-bg); border-top: 0.5px solid var(--border);
+    backdrop-filter: blur(20px);
+    display: none; gap: 0;
+  }
+  .nav-bar.visible { display: flex; }
+  .nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 6px 0; border-radius: 10px; transition: background 0.2s; }
+  .nav-tab.active .nav-icon { color: var(--accent); }
+  .nav-tab.active .nav-label { color: var(--accent); }
+  .nav-icon { font-size: 20px; color: var(--text3); transition: color 0.2s; }
+  .nav-label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; transition: color 0.2s; }
+
+  /* Summary chip */
+  .summary-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px; font-size: 11px;
+  }
+  .summary-chip.balance { background: var(--amber-bg); color: var(--amber); }
+  .summary-chip.onduty { background: var(--green-bg); color: var(--green); }
+
+  /* Section divider */
+  .divider { height: 0.5px; background: var(--border); margin: 16px 0; }
+
+  /* Pulse for current sem */
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(200,169,110,0.3); }
+    70% { box-shadow: 0 0 0 6px rgba(200,169,110,0); }
+    100% { box-shadow: 0 0 0 0 rgba(200,169,110,0); }
+  }
+  .sem-card.current { animation: pulse-ring 3s ease-out infinite; }
+</style>
+</head>
+<body>
+
+<div id="bg-layer"></div>
+<div id="bg-overlay"></div>
+<input type="file" id="bg-upload-input" accept="image/*">
+<input type="file" id="photo-input" accept="image/*" multiple capture="environment">
+
+<div id="app">
+
+  <!-- SETUP SCREEN -->
+  <div class="screen active" id="screen-setup">
+    <div class="setup-wrap">
+      <div class="setup-logo">LeaveLog</div>
+      <div class="setup-tagline">Track your leaves across every semester</div>
+      <div class="setup-card" id="setup-card">
+        <div class="setup-step-label">Getting started</div>
+        <div class="setup-step-title">Set up your programme</div>
+
+        <div class="input-wrap">
+          <div class="setup-field-label">Your name</div>
+          <input class="text-input" id="setup-name" placeholder="e.g. Arjun" type="text" autocomplete="off">
+        </div>
+
+        <div class="input-wrap">
+          <div class="setup-field-label">Programme start date</div>
+          <input class="text-input" id="setup-start" type="date">
+          <div class="setup-hint" style="margin-top:6px">First day of Semester 1</div>
+        </div>
+
+        <div class="setup-grid">
+          <div>
+            <div class="setup-field-label">Odd sem. leaves</div>
+            <input class="text-input" id="setup-odd" type="number" value="10" min="1" max="60">
+          </div>
+          <div>
+            <div class="setup-field-label">Even sem. leaves</div>
+            <input class="text-input" id="setup-even" type="number" value="15" min="1" max="60">
+          </div>
+        </div>
+
+        <div class="input-wrap">
+          <div class="setup-field-label">Semester duration (months)</div>
+          <input class="text-input" id="setup-dur" type="number" value="6" min="1" max="12">
+        </div>
+
+        <button class="btn-primary" onclick="doSetup()" style="width:100%">Start tracking →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOME SCREEN -->
+  <div class="screen" id="screen-home">
+    <div class="app-header">
+      <div class="header-row">
+        <div>
+          <div class="app-title" id="home-title">LeaveLog</div>
+          <div class="app-subtitle" id="home-sub">2024–2028 · 8 semesters</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div class="icon-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">🌙</div>
+          <div class="icon-btn" onclick="showSettings()">⚙️</div>
+        </div>
+      </div>
+    </div>
+    <div class="scroll-body" id="home-body"></div>
+  </div>
+
+  <!-- CALENDAR SCREEN -->
+  <div class="screen" id="screen-cal">
+    <div class="cal-header">
+      <div class="back-row">
+        <div class="back-btn" onclick="showHome()">← Back</div>
+      </div>
+      <div class="cal-title" id="cal-title">Semester 1</div>
+      <div class="cal-sub" id="cal-sub">Aug – Dec 2024</div>
+    </div>
+    <div style="padding: 0 16px 8px; flex-shrink:0;" id="cal-balance-wrap"></div>
+    <div class="month-nav">
+      <div class="month-arrow" onclick="prevMonth()">‹</div>
+      <div class="month-label" id="month-label" onclick="openMonthPicker()" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px"></div>
+      <div class="month-arrow" onclick="nextMonth()">›</div>
+    </div>
+    <div id="quick-jump-strip" style="padding:0 20px 8px;flex-shrink:0;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;"></div>
+    <div class="cal-grid-wrap">
+      <div class="day-heads" id="day-heads"></div>
+      <div class="day-grid" id="day-grid"></div>
+    </div>
+    <div class="legend-row">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Leave used</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>On-duty</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Today</div>
+    </div>
+    <div class="scroll-body" id="cal-log-body" style="padding-top:0"></div>
+  </div>
+
+  <!-- SETTINGS SCREEN -->
+  <div class="screen" id="screen-settings">
+    <div class="app-header">
+      <div class="back-row" style="margin-top:12px">
+        <div class="back-btn" onclick="showHome()">← Back</div>
+      </div>
+      <div class="cal-title">Settings</div>
+    </div>
+    <div class="scroll-body settings-list" id="settings-body"></div>
+  </div>
+
+</div>
+
+<!-- NAV BAR -->
+<div class="nav-bar" id="nav-bar">
+  <div class="nav-tab active" id="nav-home" onclick="showHome()">
+    <div class="nav-icon">🏠</div>
+    <div class="nav-label">Home</div>
+  </div>
+  <div class="nav-tab" id="nav-settings" onclick="showSettings()">
+    <div class="nav-icon">⚙️</div>
+    <div class="nav-label">Settings</div>
+  </div>
+</div>
+
+<!-- BOTTOM SHEET -->
+<div class="sheet-backdrop" id="sheet-backdrop" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheet-content"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────
+let state = {
+  setup: false,
+  name: '',
+  startDate: null,
+  oddLeaves: 10,
+  evenLeaves: 15,
+  semDurMonths: 6,
+  bgImage: null,
+  theme: 'dark',
+  leaves: {} // key: "YYYY-MM-DD" → {type:'balance'|'onduty', reason:'', notes:'', photos:[id,...]}
+};
+
+let currentSemIdx = 0;
+let currentMonth = new Date();
+let sheetMode = null;
+let sheetDate = null;
+let pendingPhotoResolve = null;
+let photoBuffer = [];
+
+// ─── INDEXEDDB ───────────────────────────────────────────────
+let db;
+const DB_NAME = 'leavelog_v1';
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, 2);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('photos')) d.createObjectStore('photos', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv', { keyPath: 'k' });
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbGet(store, key) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbPut(store, val) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(val);
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbDelete(store, key) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(key);
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
+}
+async function saveState() {
+  await dbPut('kv', { k: 'state', v: JSON.stringify(state) });
+}
+async function loadState() {
+  const row = await dbGet('kv', 'state');
+  if (row) { state = JSON.parse(row.v); return true; }
+  return false;
+}
+async function savePhoto(id, dataUrl) {
+  await dbPut('photos', { id, data: dataUrl });
+}
+async function loadPhoto(id) {
+  const row = await dbGet('photos', id);
+  return row ? row.data : null;
+}
+async function deletePhoto(id) {
+  await dbDelete('photos', id);
+}
+
+// ─── SEMESTERS ───────────────────────────────────────────────
+function getSemesters() {
+  const sems = [];
+  const start = new Date(state.startDate);
+  for (let i = 0; i < 8; i++) {
+    const semStart = new Date(start);
+    semStart.setMonth(semStart.getMonth() + i * state.semDurMonths);
+    const semEnd = new Date(semStart);
+    semEnd.setMonth(semEnd.getMonth() + state.semDurMonths);
+    semEnd.setDate(semEnd.getDate() - 1);
+    const isOdd = (i % 2 === 0);
+    sems.push({
+      idx: i,
+      name: `Semester ${i + 1}`,
+      isOdd,
+      totalLeaves: isOdd ? state.oddLeaves : state.evenLeaves,
+      start: semStart,
+      end: semEnd
+    });
+  }
+  return sems;
+}
+function currentSemester() {
+  const today = new Date();
+  const sems = getSemesters();
+  for (const s of sems) if (today >= s.start && today <= s.end) return s;
+  return sems[0];
+}
+function getSemLeaves(sem) {
+  const used = [], onduty = [];
+  for (const [k, v] of Object.entries(state.leaves)) {
+    const d = new Date(k);
+    if (d >= sem.start && d <= sem.end) {
+      if (v.type === 'balance') used.push(k);
+      else onduty.push(k);
+    }
+  }
+  return { used, onduty, remaining: sem.totalLeaves - used.length };
+}
+
+// ─── UI HELPERS ──────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const showNav = id !== 'screen-setup';
+  document.getElementById('nav-bar').classList.toggle('visible', showNav);
+  document.getElementById('nav-home').classList.toggle('active', id === 'screen-home');
+  document.getElementById('nav-settings').classList.toggle('active', id === 'screen-settings');
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+function openSheet(content) {
+  document.getElementById('sheet-content').innerHTML = content;
+  document.getElementById('sheet-backdrop').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+}
+function closeSheet() {
+  document.getElementById('sheet-backdrop').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open');
+  sheetMode = null; sheetDate = null; photoBuffer = [];
+}
+
+// ─── SETUP ───────────────────────────────────────────────────
+async function doSetup() {
+  const name = document.getElementById('setup-name').value.trim();
+  const start = document.getElementById('setup-start').value;
+  const odd = parseInt(document.getElementById('setup-odd').value) || 10;
+  const even = parseInt(document.getElementById('setup-even').value) || 15;
+  const dur = parseInt(document.getElementById('setup-dur').value) || 6;
+  if (!name) { toast('Please enter your name'); return; }
+  if (!start) { toast('Please select a start date'); return; }
+  state.setup = true;
+  state.name = name;
+  state.startDate = start;
+  state.oddLeaves = odd;
+  state.evenLeaves = even;
+  state.semDurMonths = dur;
+  await saveState();
+  renderHome();
+  showScreen('screen-home');
+}
+
+// ─── HOME ─────────────────────────────────────────────────────
+function renderHome() {
+  const sems = getSemesters();
+  const curSem = currentSemester();
+  document.getElementById('home-title').textContent = `Hey, ${state.name} 👋`;
+  const endYear = new Date(state.startDate);
+  endYear.setFullYear(endYear.getFullYear() + 4);
+  document.getElementById('home-sub').textContent =
+    `${new Date(state.startDate).getFullYear()}–${endYear.getFullYear()} · 4 years · 8 semesters`;
+
+  let html = '';
+  // Overall balance
+  let totalUsed = 0, totalOnduty = 0, totalAlloc = 0;
+  for (const s of sems) {
+    const lv = getSemLeaves(s);
+    totalUsed += lv.used.length;
+    totalOnduty += lv.onduty.length;
+    totalAlloc += s.totalLeaves;
+  }
+  html += `<div class="balance-strip">
+    <div class="bal-cell"><div class="bal-num">${totalAlloc}</div><div class="bal-label">Total</div></div>
+    <div class="bal-cell"><div class="bal-num amber">${totalUsed}</div><div class="bal-label">Used</div></div>
+    <div class="bal-cell"><div class="bal-num green">${totalAlloc - totalUsed}</div><div class="bal-label">Left</div></div>
+    <div class="bal-cell"><div class="bal-num blue">${totalOnduty}</div><div class="bal-label">On-Duty</div></div>
+  </div>`;
+
+  for (const s of sems) {
+    const lv = getSemLeaves(s);
+    const pct = s.totalLeaves > 0 ? (lv.used.length / s.totalLeaves) * 100 : 0;
+    const isCur = s.idx === curSem.idx;
+    let fillClass = pct < 60 ? '' : pct < 85 ? 'warn' : 'danger';
+    const fmtDate = (d) => d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+    html += `<div class="sem-card${isCur ? ' current' : ''}" onclick="openCalendar(${s.idx})">
+      <div class="sem-card-row">
+        <div class="sem-name">${s.name} <span style="font-size:11px;color:var(--text3);font-weight:400">${s.isOdd ? '· Odd' : '· Even'}</span></div>
+        <div class="sem-tag${isCur ? ' current' : ''}">${isCur ? 'Current' : fmtDate(s.start) + ' – ' + fmtDate(s.end)}</div>
+      </div>
+      <div class="progress-row">
+        <div class="prog-track"><div class="prog-fill ${fillClass}" style="width:${pct}%"></div></div>
+        <div class="prog-pct">${lv.used.length}/${s.totalLeaves}</div>
+      </div>
+      <div class="sem-stats-row">
+        <div class="sem-stat">Remaining <span>${lv.remaining}</span></div>
+        <div class="sem-stat">On-duty <span>${lv.onduty.length}</span></div>
+        ${isCur ? '<div class="sem-stat" style="color:var(--accent);opacity:0.8">← Tap to open</div>' : ''}
+      </div>
+    </div>`;
+  }
+  document.getElementById('home-body').innerHTML = html;
+}
+
+function showHome() {
+  renderHome();
+  showScreen('screen-home');
+}
+
+// ─── CALENDAR ────────────────────────────────────────────────
+function openCalendar(idx) {
+  currentSemIdx = idx;
+  const sems = getSemesters();
+  const sem = sems[idx];
+  const curMon = new Date(sem.start);
+  curMon.setDate(1);
+  currentMonth = curMon;
+  renderCalendar();
+  showScreen('screen-cal');
+}
+
+function renderCalendar() {
+  const sems = getSemesters();
+  const sem = sems[currentSemIdx];
+  const lv = getSemLeaves(sem);
+
+  document.getElementById('cal-title').textContent = sem.name;
+  const fmtFull = (d) => d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+  document.getElementById('cal-sub').textContent =
+    `${fmtFull(sem.start)} – ${fmtFull(sem.end)} · ${sem.isOdd ? 'Odd' : 'Even'} semester`;
+
+  // Balance strip
+  document.getElementById('cal-balance-wrap').innerHTML = `
+    <div class="balance-strip">
+      <div class="bal-cell"><div class="bal-num">${sem.totalLeaves}</div><div class="bal-label">Total</div></div>
+      <div class="bal-cell"><div class="bal-num amber">${lv.used.length}</div><div class="bal-label">Used</div></div>
+      <div class="bal-cell"><div class="bal-num green">${lv.remaining}</div><div class="bal-label">Left</div></div>
+      <div class="bal-cell"><div class="bal-num blue">${lv.onduty.length}</div><div class="bal-label">On-Duty</div></div>
+    </div>`;
+
+  // Month label
+  document.getElementById('month-label').textContent =
+    currentMonth.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+  // Quick jump strip
+  renderQuickJump();
+
+  // Day headers
+  const heads = ['S','M','T','W','T','F','S'];
+  document.getElementById('day-heads').innerHTML = heads.map(h => `<div class="day-head">${h}</div>`).join('');
+
+  // Grid
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+
+  let gridHtml = '';
+  for (let i = 0; i < firstDay; i++) gridHtml += `<div class="day-cell empty"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month, d);
+    const key = dateKey(dt);
+    const isToday = dt.toDateString() === today.toDateString();
+    const inSem = dt >= sem.start && dt <= sem.end;
+    const leave = state.leaves[key];
+    let cls = 'day-cell';
+    if (!inSem) cls += ' outside-sem';
+    if (isToday) cls += ' today';
+    if (leave) cls += leave.type === 'balance' ? ' has-leave type-balance' : ' has-leave type-onduty';
+    // Find which semester this day really belongs to (for outside-sem days)
+    const ownerSem = inSem ? sem : getSemesters().find(s => dt >= s.start && dt <= s.end);
+    const semAttr = ownerSem ? `data-sem="${ownerSem.idx}"` : '';
+    gridHtml += `<div class="${cls}" ${semAttr} onclick="tapDayInContext('${key}', ${ownerSem ? ownerSem.idx : currentSemIdx})"><span class="day-num">${d}</span><span class="day-pip"></span></div>`;
+  }
+  document.getElementById('day-grid').innerHTML = gridHtml;
+
+  // Log of marked days this month
+  renderCalLog(sem);
+}
+
+function renderCalLog(sem) {
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const entries = Object.entries(state.leaves)
+    .filter(([k]) => { const d = new Date(k); return d.getFullYear() === year && d.getMonth() === month && d >= sem.start && d <= sem.end; })
+    .sort(([a],[b]) => a.localeCompare(b));
+
+  if (entries.length === 0) {
+    document.getElementById('cal-log-body').innerHTML = '<div class="empty-state">No leaves marked this month</div>';
+    return;
+  }
+  let html = '<div style="padding-top:4px">';
+  for (const [k, v] of entries) {
+    const d = new Date(k);
+    const label = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+    const chip = v.type === 'balance' ?
+      `<span class="summary-chip balance">📋 ${v.reason || 'Leave'}</span>` :
+      `<span class="summary-chip onduty">🎓 ${v.reason || 'On-duty'}</span>`;
+    html += `<div class="day-log-entry" onclick="tapDay('${k}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="font-size:13px;font-weight:500">${label}</div>
+        ${chip}
+      </div>
+      ${v.notes ? `<div class="day-log-note">${v.notes}</div>` : ''}
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('cal-log-body').innerHTML = html;
+}
+
+function prevMonth() {
+  currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+  // If navigating outside current sem, update sem context
+  const sems = getSemesters();
+  const matched = sems.find(s => currentMonth >= s.start && currentMonth <= s.end);
+  if (matched) currentSemIdx = matched.idx;
+  renderCalendar();
+}
+function nextMonth() {
+  currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+  const sems = getSemesters();
+  const matched = sems.find(s => currentMonth >= s.start && currentMonth <= s.end);
+  if (matched) currentSemIdx = matched.idx;
+  renderCalendar();
+}
+
+function renderQuickJump() {
+  const sems = getSemesters();
+  const strip = document.getElementById('quick-jump-strip');
+  if (!strip) return;
+  let html = '';
+  for (const s of sems) {
+    const isCur = s.idx === currentSemIdx;
+    const mon = s.start.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+    html += '<div onclick="jumpToSem(' + s.idx + ')" style="flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;white-space:nowrap;' +
+      'background:' + (isCur ? 'rgba(200,169,110,0.18)' : 'var(--surface2)') + ';' +
+      'border:0.5px solid ' + (isCur ? 'var(--accent)' : 'var(--border)') + ';' +
+      'color:' + (isCur ? 'var(--accent2)' : 'var(--text2)') + ';">' +
+      'S' + (s.idx + 1) + ' · ' + mon + '</div>';
+  }
+  strip.innerHTML = html;
+  setTimeout(() => {
+    const chips = strip.querySelectorAll('div');
+    if (chips[currentSemIdx]) chips[currentSemIdx].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, 50);
+}
+
+function jumpToSem(idx) {
+  currentSemIdx = idx;
+  const sems = getSemesters();
+  const sem = sems[idx];
+  currentMonth = new Date(sem.start.getFullYear(), sem.start.getMonth(), 1);
+  renderCalendar();
+}
+
+function openMonthPicker() {
+  const sems = getSemesters();
+  const rangeStart = new Date(state.startDate);
+  rangeStart.setFullYear(rangeStart.getFullYear() - 1);
+  const rangeEnd = new Date(sems[7].end);
+  rangeEnd.setFullYear(rangeEnd.getFullYear() + 1);
+  let rows = '';
+  let d = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+  while (d <= rangeEnd) {
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const isCur = y === currentMonth.getFullYear() && m === currentMonth.getMonth();
+    const sem = sems.find(s => d >= s.start && d <= s.end);
+    const semTag = sem ? '<span style="font-size:10px;color:var(--text3);margin-left:6px">S' + (sem.idx+1) + '</span>' : '';
+    rows += '<div onclick="jumpToMonth(' + y + ',' + m + ')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:10px;cursor:pointer;margin-bottom:4px;' +
+      'background:' + (isCur ? 'var(--amber-bg)' : 'var(--surface)') + ';border:0.5px solid ' + (isCur ? 'var(--amber)' : 'var(--border)') + ';' +
+      'color:' + (isCur ? 'var(--amber)' : 'var(--text)') + ';">' +
+      '<span style="font-size:14px">' + d.toLocaleDateString('en-IN',{month:'long',year:'numeric'}) + '</span>' +
+      semTag + '</div>';
+    d.setMonth(d.getMonth() + 1);
+  }
+  openSheet('<div class="sheet-title">Go to month</div><div style="margin-top:12px">' + rows + '</div>');
+  setTimeout(() => {
+    const els = document.querySelectorAll('#sheet-content [style*="amber-bg"]');
+    if (els.length) els[0].scrollIntoView({ block: 'center' });
+  }, 80);
+}
+
+function jumpToMonth(y, m) {
+  currentMonth = new Date(y, m, 1);
+  const sems = getSemesters();
+  const matched = sems.find(s => currentMonth >= s.start && currentMonth <= s.end);
+  if (matched) currentSemIdx = matched.idx;
+  closeSheet();
+  renderCalendar();
+}
+
+// ─── DATE KEY ─────────────────────────────────────────────────
+function dateKey(d) {
+  return d.toISOString().split('T')[0];
+}
+
+// ─── MARK LEAVE SHEET ────────────────────────────────────────
+function tapDayInContext(key, semIdx) {
+  // If the tapped day belongs to a different semester, switch context so balance is correct
+  if (semIdx !== undefined && semIdx !== currentSemIdx) {
+    currentSemIdx = semIdx;
+  }
+  tapDay(key);
+}
+
+function tapDay(key) {
+  sheetDate = key;
+  const existing = state.leaves[key];
+  const sems = getSemesters();
+  const sem = sems[currentSemIdx];
+  const lv = getSemLeaves(sem);
+  const d = new Date(key);
+  const label = d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  if (existing) {
+    showViewSheet(key, existing, label, sem, lv);
+  } else {
+    showMarkSheet(key, null, label, sem, lv);
+  }
+}
+
+function showMarkSheet(key, existing, label, sem, lv) {
+  sheetMode = 'mark';
+  const selType = existing ? existing.type : 'balance';
+  const selReason = existing ? existing.reason : '';
+  const notes = existing ? existing.notes : '';
+
+  const balanceReasons = ['Sick', 'Vacation', 'Personal', 'Family', 'Other'];
+  const dutyReasons = ['Conference', 'Workshop', 'Seminar', 'Field visit', 'Competition', 'Other'];
+
+  const buildChips = (reasons, type, sel) =>
+    reasons.map(r => `<div class="chip${sel === r ? ' sel' + (type === 'onduty' ? ' onduty' : '') : ''}" onclick="selectReason(this,'${r}','${type}')">${r}</div>`).join('');
+
+  openSheet(`
+    <div class="sheet-title">${label}</div>
+    <div class="sheet-sub">Semester ${sem.idx + 1} · ${lv.remaining} days remaining</div>
+    <div class="type-toggle">
+      <div class="type-opt${selType === 'balance' ? ' sel-balance' : ''}" id="opt-balance" onclick="switchType('balance')">
+        <div class="t-icon">📋</div>
+        <div class="t-label">Semester leave</div>
+        <div class="t-sub">Uses balance</div>
+      </div>
+      <div class="type-opt${selType === 'onduty' ? ' sel-onduty' : ''}" id="opt-onduty" onclick="switchType('onduty')">
+        <div class="t-icon">🎓</div>
+        <div class="t-label">On-duty</div>
+        <div class="t-sub">Doesn't deduct</div>
+      </div>
+    </div>
+
+    <div id="balance-section" style="${selType === 'onduty' ? 'display:none' : ''}">
+      <div class="field-label">Reason</div>
+      <div class="chips" id="chips-balance">${buildChips(balanceReasons, 'balance', selReason)}</div>
+    </div>
+
+    <div id="onduty-section" style="${selType === 'balance' ? 'display:none' : ''}">
+      <div class="field-label">Event type</div>
+      <div class="chips" id="chips-onduty">${buildChips(dutyReasons, 'onduty', selReason)}</div>
+      <div class="input-wrap">
+        <div class="field-label">Event name</div>
+        <input class="text-input" id="event-name" placeholder="e.g. National Science Symposium" type="text" autocomplete="off" value="${selType === 'onduty' ? (existing?.eventName || '') : ''}">
+      </div>
+      <div class="photo-section">
+        <div class="field-label">Photos</div>
+        <div class="photo-strip" id="photo-strip">
+          <div class="photo-add" onclick="addPhotos()">+</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-wrap">
+      <div class="field-label">Notes</div>
+      <textarea class="text-area" id="leave-notes" placeholder="Any details to remember…">${notes}</textarea>
+    </div>
+
+    <div class="action-row">
+      <button class="btn-primary" onclick="saveLeave('${key}')">Save leave</button>
+    </div>
+  `);
+
+  // Reload existing photos
+  if (existing && existing.photos && existing.photos.length > 0) {
+    photoBuffer = [...existing.photos];
+    renderPhotoStrip();
+  }
+}
+
+async function showViewSheet(key, leave, label, sem, lv) {
+  sheetMode = 'view';
+  const chip = leave.type === 'balance' ?
+    `<span class="summary-chip balance">📋 Semester leave</span>` :
+    `<span class="summary-chip onduty">🎓 On-duty</span>`;
+
+  let photoHtml = '';
+  if (leave.photos && leave.photos.length > 0) {
+    photoHtml = `<div class="field-label" style="margin-top:12px">Photos</div><div class="photo-grid" id="view-photo-grid"></div>`;
+  }
+
+  openSheet(`
+    <div class="sheet-title">${label}</div>
+    <div style="margin-bottom:14px">${chip} ${leave.reason ? `<span style="font-size:12px;color:var(--text2);margin-left:6px">${leave.reason}</span>` : ''}</div>
+    ${leave.eventName ? `<div class="field-label">Event</div><div style="font-size:14px;color:var(--text);margin-bottom:12px">${leave.eventName}</div>` : ''}
+    ${leave.notes ? `<div class="field-label">Notes</div><div style="font-size:14px;color:var(--text2);margin-bottom:12px;line-height:1.5">${leave.notes}</div>` : ''}
+    ${photoHtml}
+    <div class="action-row" style="margin-top:16px">
+      <button class="btn-primary" onclick="editLeave('${key}')">Edit</button>
+      <button class="btn-secondary" onclick="deleteLeave('${key}')">Delete</button>
+    </div>
+  `);
+
+  // Load photos
+  if (leave.photos && leave.photos.length > 0) {
+    const grid = document.getElementById('view-photo-grid');
+    if (grid) {
+      for (const pid of leave.photos) {
+        const data = await loadPhoto(pid);
+        if (data) {
+          const img = document.createElement('img');
+          img.src = data;
+          img.onclick = () => window.open(data, '_blank');
+          grid.appendChild(img);
+        }
+      }
+    }
+  }
+}
+
+function editLeave(key) {
+  closeSheet();
+  setTimeout(() => tapDay(key), 100);
+}
+
+function switchType(type) {
+  document.getElementById('opt-balance').className = 'type-opt' + (type === 'balance' ? ' sel-balance' : '');
+  document.getElementById('opt-onduty').className = 'type-opt' + (type === 'onduty' ? ' sel-onduty' : '');
+  document.getElementById('balance-section').style.display = type === 'balance' ? '' : 'none';
+  document.getElementById('onduty-section').style.display = type === 'onduty' ? '' : 'none';
+}
+
+function selectReason(el, reason, type) {
+  const containerId = type === 'balance' ? 'chips-balance' : 'chips-onduty';
+  document.querySelectorAll(`#${containerId} .chip`).forEach(c => c.classList.remove('sel', 'onduty'));
+  el.classList.add('sel');
+  if (type === 'onduty') el.classList.add('onduty');
+}
+
+function addPhotos() {
+  document.getElementById('photo-input').click();
+}
+
+document.getElementById('photo-input').addEventListener('change', async function() {
+  const files = Array.from(this.files);
+  for (const file of files) {
+    const id = 'photo_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const dataUrl = await fileToDataUrl(file);
+    await savePhoto(id, dataUrl);
+    photoBuffer.push(id);
+  }
+  renderPhotoStrip();
+  this.value = '';
+});
+
+function fileToDataUrl(file) {
+  return new Promise((res) => {
+    const reader = new FileReader();
+    reader.onload = e => res(e.target.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function renderPhotoStrip() {
+  const strip = document.getElementById('photo-strip');
+  if (!strip) return;
+  strip.innerHTML = '';
+  for (const pid of photoBuffer) {
+    const data = await loadPhoto(pid);
+    if (data) {
+      const img = document.createElement('img');
+      img.className = 'photo-thumb';
+      img.src = data;
+      img.onclick = () => removePhoto(pid);
+      strip.appendChild(img);
+    }
+  }
+  const add = document.createElement('div');
+  add.className = 'photo-add';
+  add.textContent = '+';
+  add.onclick = addPhotos;
+  strip.appendChild(add);
+}
+
+async function removePhoto(pid) {
+  photoBuffer = photoBuffer.filter(p => p !== pid);
+  await deletePhoto(pid);
+  renderPhotoStrip();
+}
+
+async function saveLeave(key) {
+  const isBalance = document.getElementById('opt-balance').classList.contains('sel-balance');
+  const type = isBalance ? 'balance' : 'onduty';
+  const reason = (() => {
+    const chips = document.querySelectorAll(`#chips-${isBalance ? 'balance' : 'onduty'} .chip.sel`);
+    return chips.length > 0 ? chips[0].textContent : '';
+  })();
+  const notes = document.getElementById('leave-notes')?.value.trim() || '';
+  const eventNameEl = document.getElementById('event-name');
+  const eventName = eventNameEl ? eventNameEl.value.trim() : '';
+
+  // Warn (don't block) if balance is exhausted
+  if (type === 'balance') {
+    const sems = getSemesters();
+    const sem = sems[currentSemIdx];
+    const lv = getSemLeaves(sem);
+    const existing = state.leaves[key];
+    const wasBalance = existing && existing.type === 'balance';
+    if (!wasBalance && lv.remaining <= 0) {
+      toast('⚠️ Balance at 0 — saved anyway');
+    }
+  }
+
+  state.leaves[key] = { type, reason, notes, eventName, photos: [...photoBuffer] };
+  await saveState();
+  closeSheet();
+  renderCalendar();
+  toast(type === 'balance' ? '📋 Leave saved' : '🎓 On-duty saved');
+}
+
+async function deleteLeave(key) {
+  const leave = state.leaves[key];
+  if (leave && leave.photos) {
+    for (const pid of leave.photos) await deletePhoto(pid);
+  }
+  delete state.leaves[key];
+  await saveState();
+  closeSheet();
+  renderCalendar();
+  toast('Deleted');
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────────
+function showSettings() {
+  renderSettings();
+  showScreen('screen-settings');
+}
+
+function renderSettings() {
+  const sems = getSemesters();
+  const startFmt = new Date(state.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  document.getElementById('settings-body').innerHTML = `
+    <div class="settings-section">
+      <div class="settings-section-label">Profile</div>
+      <div class="settings-item" onclick="editName()">
+        <div class="settings-item-label">Name</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="settings-item-val">${state.name}</div>
+          <div class="settings-item-arrow">›</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">Programme</div>
+      <div class="settings-item" onclick="editStart()">
+        <div class="settings-item-label">Start date</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="settings-item-val">${startFmt}</div>
+          <div class="settings-item-arrow">›</div>
+        </div>
+      </div>
+      <div class="settings-item" onclick="editLeaves()">
+        <div class="settings-item-label">Leave allowance</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="settings-item-val">Odd: ${state.oddLeaves} · Even: ${state.evenLeaves}</div>
+          <div class="settings-item-arrow">›</div>
+        </div>
+      </div>
+      <div class="settings-item" onclick="editDuration()">
+        <div class="settings-item-label">Semester duration</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="settings-item-val">${state.semDurMonths} months</div>
+          <div class="settings-item-arrow">›</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">Appearance</div>
+      <div class="settings-item" onclick="toggleTheme()">
+        <div class="settings-item-label">Theme</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="settings-item-val" id="theme-label">Dark</div>
+          <div id="theme-pill" style="width:44px;height:24px;border-radius:12px;background:var(--surface3);border:0.5px solid var(--border2);position:relative;cursor:pointer;transition:background 0.3s">
+            <div id="theme-knob" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--accent);transition:transform 0.3s"></div>
+          </div>
+        </div>
+      </div>
+      <div class="settings-item" onclick="document.getElementById('bg-upload-input').click()">
+        <div class="settings-item-label">Background image</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="settings-item-val">${state.bgImage ? 'Custom set' : 'None'}</div>
+          <div class="settings-item-arrow">›</div>
+        </div>
+      </div>
+      ${state.bgImage ? `<div class="settings-item" onclick="clearBg()">
+        <div class="settings-item-label" style="color:var(--red)">Remove background</div>
+      </div>` : ''}
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">Data</div>
+      <div class="settings-item" onclick="exportData()">
+        <div class="settings-item-label">Export summary</div>
+        <div class="settings-item-arrow">›</div>
+      </div>
+      <div class="settings-item" onclick="resetApp()">
+        <div class="settings-item-label" style="color:var(--red)">Reset all data</div>
+      </div>
+    </div>
+  `;
+}
+
+function editName() {
+  openSheet(`
+    <div class="sheet-title">Your name</div>
+    <div class="input-wrap" style="margin-top:12px">
+      <input class="text-input" id="edit-name" value="${state.name}" type="text" autocomplete="off">
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="saveName()">Save</button>
+  `);
+}
+async function saveName() {
+  const v = document.getElementById('edit-name').value.trim();
+  if (v) { state.name = v; await saveState(); closeSheet(); renderSettings(); renderHome(); }
+}
+
+function editStart() {
+  openSheet(`
+    <div class="sheet-title">Programme start date</div>
+    <div class="input-wrap" style="margin-top:12px">
+      <input class="text-input" id="edit-start" type="date" value="${state.startDate}">
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="saveStart()">Save</button>
+  `);
+}
+async function saveStart() {
+  const v = document.getElementById('edit-start').value;
+  if (v) { state.startDate = v; await saveState(); closeSheet(); renderSettings(); renderHome(); }
+}
+
+function editLeaves() {
+  openSheet(`
+    <div class="sheet-title">Leave allowance</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;margin-bottom:16px">
+      <div>
+        <div class="field-label">Odd semesters</div>
+        <input class="text-input" id="edit-odd" type="number" value="${state.oddLeaves}" min="1">
+      </div>
+      <div>
+        <div class="field-label">Even semesters</div>
+        <input class="text-input" id="edit-even" type="number" value="${state.evenLeaves}" min="1">
+      </div>
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="saveLeaves()">Save</button>
+  `);
+}
+async function saveLeaves() {
+  const odd = parseInt(document.getElementById('edit-odd').value);
+  const even = parseInt(document.getElementById('edit-even').value);
+  if (odd > 0 && even > 0) {
+    state.oddLeaves = odd; state.evenLeaves = even;
+    await saveState(); closeSheet(); renderSettings(); renderHome();
+  }
+}
+
+function editDuration() {
+  openSheet(`
+    <div class="sheet-title">Semester duration</div>
+    <div class="input-wrap" style="margin-top:12px">
+      <div class="field-label">Months per semester</div>
+      <input class="text-input" id="edit-dur" type="number" value="${state.semDurMonths}" min="1" max="12">
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="saveDur()">Save</button>
+  `);
+}
+async function saveDur() {
+  const v = parseInt(document.getElementById('edit-dur').value);
+  if (v > 0) { state.semDurMonths = v; await saveState(); closeSheet(); renderSettings(); renderHome(); }
+}
+
+async function clearBg() {
+  state.bgImage = null;
+  document.getElementById('bg-layer').style.backgroundImage = '';
+  await saveState();
+  renderSettings();
+  toast('Background removed');
+}
+
+async function exportData() {
+  const sems = getSemesters();
+  let text = `LeaveLog Export — ${state.name}\n${'='.repeat(40)}\n\n`;
+  for (const s of sems) {
+    const lv = getSemLeaves(s);
+    text += `${s.name} (${s.isOdd ? 'Odd' : 'Even'})\n`;
+    text += `  Balance: ${lv.used.length}/${s.totalLeaves} used · ${lv.remaining} remaining · ${lv.onduty.length} on-duty\n`;
+    const all = [...lv.used, ...lv.onduty].sort();
+    for (const k of all) {
+      const v = state.leaves[k];
+      const d = new Date(k).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+      text += `  ${d}: [${v.type}] ${v.reason || ''} ${v.notes ? '– ' + v.notes : ''}\n`;
+    }
+    text += '\n';
+  }
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'leavelog_export.txt'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Exported!');
+}
+
+async function resetApp() {
+  openSheet(`
+    <div class="sheet-title" style="color:var(--red)">Reset all data?</div>
+    <div style="font-size:14px;color:var(--text2);margin:12px 0 24px;line-height:1.6">This will delete all your leave history and settings. This cannot be undone.</div>
+    <div class="action-row">
+      <button class="btn-primary" onclick="closeSheet()">Cancel</button>
+      <button class="btn-secondary" onclick="confirmReset()">Reset</button>
+    </div>
+  `);
+}
+async function confirmReset() {
+  state = { setup: false, name: '', startDate: null, oddLeaves: 10, evenLeaves: 15, semDurMonths: 6, bgImage: null, leaves: {} };
+  await saveState();
+  document.getElementById('bg-layer').style.backgroundImage = '';
+  closeSheet();
+  showScreen('screen-setup');
+  document.getElementById('nav-bar').classList.remove('visible');
+}
+
+// ─── BACKGROUND IMAGE ─────────────────────────────────────────
+document.getElementById('bg-upload-input').addEventListener('change', async function() {
+  const file = this.files[0];
+  if (!file) return;
+  const dataUrl = await fileToDataUrl(file);
+  state.bgImage = dataUrl;
+  await saveState();
+  applyBg();
+  renderSettings();
+  toast('Background updated!');
+  this.value = '';
+});
+
+function applyBg() {
+  if (state.bgImage) {
+    document.getElementById('bg-layer').style.backgroundImage = `url(${state.bgImage})`;
+  } else {
+    document.getElementById('bg-layer').style.backgroundImage = '';
+  }
+}
+
+// ─── THEME ───────────────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.body.classList.remove('dark', 'light');
+  document.body.classList.add(theme);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+  const lbl = document.getElementById('theme-label');
+  if (lbl) lbl.textContent = theme === 'dark' ? 'Dark' : 'Light';
+  const knob = document.getElementById('theme-knob');
+  if (knob) knob.style.transform = theme === 'light' ? 'translateX(20px)' : 'translateX(0)';
+}
+async function toggleTheme() {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  applyTheme(state.theme);
+  await saveState();
+  const settingsEl = document.getElementById('settings-body');
+  if (settingsEl && settingsEl.innerHTML) renderSettings();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+async function init() {
+  await openDB();
+  const loaded = await loadState();
+  if (loaded && state.setup) {
+    applyTheme(state.theme || 'dark');
+    applyBg();
+    renderHome();
+    showScreen('screen-home');
+  } else {
+    showScreen('screen-setup');
+    // Set today as default for date input
+    const today = new Date().toISOString().split('T')[0];
+    const el = document.getElementById('setup-start');
+    if (el) el.value = today;
+  }
+}
+init();
+</script>
+</body>
+</html>
